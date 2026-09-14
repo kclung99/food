@@ -6,7 +6,9 @@ Install dependencies once.
 python3 -m pip install -r requirements.txt
 ```
 
-Process today’s photos now.
+Process all unregistered photos in the flat iCloud capture folder now.
+
+Manual and scheduled runs publish successful changes to GitHub automatically.
 
 ```bash
 python3 scripts/process_captures.py

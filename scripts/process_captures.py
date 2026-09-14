@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Process today's photos from one flat capture directory, once each."""
+"""Process unregistered photos from one flat capture directory, once each."""
 import argparse, os, sqlite3, subprocess, sys
-from datetime import date, datetime
+from datetime import datetime
 from pathlib import Path
 from PIL import Image
 
@@ -30,6 +30,24 @@ def source_time(image):
 def slug(image, timestamp):
     return f'{image.stem.lower()}-{timestamp[:10]}'
 
+def publish(db, processed):
+    """Commit and push generated site changes after successful processing."""
+    if not processed:
+        log(db, 'INFO', 'publish_skipped', 'Nothing new to publish')
+        return
+    try:
+        subprocess.run(['git', 'add', 'dist', 'data/food.db'], cwd=ROOT, check=True)
+        staged = subprocess.run(['git', 'diff', '--cached', '--quiet'], cwd=ROOT)
+        if staged.returncode == 0:
+            log(db, 'INFO', 'publish_skipped', 'No generated changes to publish')
+            return
+        subprocess.run(['git', 'commit', '-m', f'Add {processed} food capture(s)'], cwd=ROOT, check=True)
+        subprocess.run(['git', 'push'], cwd=ROOT, check=True)
+        log(db, 'INFO', 'published', f'Pushed {processed} food capture(s) to GitHub')
+    except subprocess.CalledProcessError as error:
+        log(db, 'ERROR', 'publish_failed', f'GitHub publish failed with exit code {error.returncode}')
+        print('GitHub publish failed; inspect the local git output and retry later.', file=sys.stderr)
+
 def main():
     load_env()
     parser = argparse.ArgumentParser()
@@ -39,18 +57,13 @@ def main():
     database = ROOT / 'data' / 'food.db'
     if not database.exists():
         subprocess.run([sys.executable, str(ROOT / 'scripts' / 'init_db.py')], check=True)
-    today = date.today().isoformat()
     images = sorted(x for x in args.captures.iterdir() if x.is_file() and x.suffix.lower() in EXTENSIONS)
     with sqlite3.connect(database) as db:
-        log(db, 'INFO', 'scan_started', f'Scanning {args.captures} for {today}')
+        log(db, 'INFO', 'scan_started', f'Scanning {args.captures} for unregistered photos')
         processed = skipped = 0
         for image in images:
             source = str(image.resolve())
             timestamp = source_time(image)
-            if timestamp[:10] != today:
-                log(db, 'INFO', 'skipped', f'Photo date is {timestamp[:10]}', source)
-                skipped += 1
-                continue
             existing = db.execute('SELECT id,status FROM records WHERE source=?', (source,)).fetchone()
             if existing and existing[1] in {'succeeded', 'processing'}:
                 log(db, 'INFO', 'skipped', f'Already {existing[1]}', source)
@@ -76,5 +89,8 @@ def main():
                 print(f'Failed {image.name}: {error}', file=sys.stderr)
         log(db, 'INFO', 'scan_completed', f'Found {len(images)} photo(s); processed {processed}; skipped {skipped}')
     subprocess.run([sys.executable, str(ROOT/'scripts/build_site.py')], check=True)
+
+    with sqlite3.connect(database) as db:
+        publish(db, processed)
 
 if __name__ == '__main__': main()
