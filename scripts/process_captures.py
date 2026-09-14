@@ -3,7 +3,7 @@
 import argparse, os, sqlite3, subprocess, sys
 from datetime import datetime
 from pathlib import Path
-from PIL import Image
+from PIL import Image, UnidentifiedImageError
 
 ROOT = Path(__file__).resolve().parents[1]
 EXTENSIONS = {'.png', '.jpg', '.jpeg', '.heic'}
@@ -21,7 +21,8 @@ def log(db, level, action, message, source=None):
     db.commit()
 
 def source_time(image):
-    exif = Image.open(image).getexif()
+    with Image.open(image) as photo:
+        exif = photo.getexif()
     value = exif.get(36867) or exif.get(306)
     if value:
         return value.replace(':', '-', 2).replace(' ', 'T')
@@ -63,7 +64,13 @@ def main():
         processed = skipped = 0
         for image in images:
             source = str(image.resolve())
-            timestamp = source_time(image)
+            try:
+                timestamp = source_time(image)
+            except (OSError, UnidentifiedImageError) as error:
+                log(db, 'WARNING', 'skipped', f'Image is not ready or readable: {error}', source)
+                print(f'Skipped {image.name}: image is not ready or readable', flush=True)
+                skipped += 1
+                continue
             existing = db.execute('SELECT id,status FROM records WHERE source=?', (source,)).fetchone()
             if existing and existing[1] in {'succeeded', 'processing'}:
                 log(db, 'INFO', 'skipped', f'Already {existing[1]}', source)
