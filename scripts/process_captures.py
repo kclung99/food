@@ -4,6 +4,9 @@ import argparse, os, sqlite3, subprocess, sys
 from datetime import datetime
 from pathlib import Path
 from PIL import Image, UnidentifiedImageError
+from pillow_heif import register_heif_opener
+
+register_heif_opener()
 
 ROOT = Path(__file__).resolve().parents[1]
 EXTENSIONS = {'.png', '.jpg', '.jpeg', '.heic'}
