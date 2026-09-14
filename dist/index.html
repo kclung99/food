@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>food</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root { color: #111; background: #fff; font-family: 'Roboto Mono', monospace; }
+    * { box-sizing: border-box; }
+    html, body { overflow-x: hidden; }
+    body { margin: 0; min-height: 100vh; display: flex; justify-content: center; scrollbar-width: none; }
+    body::-webkit-scrollbar { display: none; }
+    main { width: min(calc(100% - 40px), 980px); max-width: 100%; height: 100vh; display: flex; flex-direction: column; padding: 0; overflow: hidden; }
+    .edge { position: relative; width: 100vw; left: 50%; transform: translateX(-50%); z-index: 1; padding: 16px 0; text-align: center; }
+    .edge-bottom { padding: 72px 0 16px; }
+    .edge::before { display: none; }
+    h1 { margin: 0; font-size: 1.25rem; font-weight: 400; }
+    .content { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: none; }
+    .content::-webkit-scrollbar { display: none; }
+    .gallery { width: 100%; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 20px; align-content: start; align-items: start; }
+    article { min-width: 0; text-align: center; }
+    .stage { height: 220px; position: relative; }
+    canvas { width: 100%; height: 100%; display: block; cursor: grab; }
+    canvas:active { cursor: grabbing; }
+    .stage { cursor: zoom-in; }
+    .model-modal { position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; padding: 24px; background: rgba(255,255,255,.94); }
+    .model-modal[hidden] { display: none; }
+    .modal-stage { width: min(760px, 90vw); height: min(760px, 78vh); }
+    time { display: block; margin-top: 16px; font-size: 1rem; }
+    footer { margin-top: 0; flex: none; font-size: 1rem; }
+    @media (max-width: 760px) { main { padding-top: 0; } h1 { margin-bottom: 36px; } .gallery { grid-template-columns: 1fr 1fr; gap: 36px 16px; } .stage { height: 260px; } }
+    @media (max-width: 480px) { main { width: min(calc(100% - 28px), 360px); } .gallery { grid-template-columns: 1fr; } .stage { height: 300px; } }
+  </style>
+</head>
+<body>
+  <main>
+    <header class="edge edge-top"><h1>food</h1></header>
+    <section class="content">
+    <section class="gallery" aria-label="food">
+      <!-- RECORDS_START -->
+      <!-- RECORDS_END -->
+    </section>
+    <footer class="edge edge-bottom">kclung · 2026</footer>
+    </section>
+  </main>
+  <div class="model-modal" id="model-modal" hidden>
+    <div class="modal-stage stage" id="modal-stage"></div>
+  </div>
+  <script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"}}</script>
+  <script src="records.js"></script>
+  <script type="module">
+    import * as THREE from 'three';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+    import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    const loader = new GLTFLoader();
+    const draco = new DRACOLoader();
+    draco.setDecoderPath('https://unpkg.com/three@0.160.0/examples/jsm/libs/draco/');
+    loader.setDRACOLoader(draco);
+    function loadStage(el, index, highQuality = false) {
+      if (el.dataset.loaded) return;
+      el._disposed = false;
+      el.dataset.loaded = 'true';
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(28, el.clientWidth / el.clientHeight, .01, 100);
+      camera.position.set(0, 1.65, 3.3);
+      const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      const galleryRatio = document.querySelector('#model-modal')?.hidden === false ? .75 : 1.5;
+      renderer.setPixelRatio(Math.min(devicePixelRatio, highQuality ? 2 : galleryRatio)); renderer.setSize(el.clientWidth, el.clientHeight); renderer.outputColorSpace = THREE.SRGBColorSpace;
+      el._renderer = renderer;
+      el.appendChild(renderer.domElement);
+      scene.add(new THREE.HemisphereLight(0xffffff, 0xddddee, 2.2));
+      const key = new THREE.DirectionalLight(0xffffff, 2); key.position.set(2, 3, 4); scene.add(key);
+      const controls = new OrbitControls(camera, renderer.domElement); controls.enablePan = false; controls.enableZoom = false; controls.autoRotate = true; controls.autoRotateSpeed = 1.2 + index * .15;
+      el._dispose = () => {
+        el._disposed = true;
+        controls.dispose();
+        renderer.dispose();
+        renderer.forceContextLoss();
+        el._renderer = null;
+      };
+      loader.load(el.dataset.model, gltf => {
+        const object = gltf.scene; const box = new THREE.Box3().setFromObject(object); const size = box.getSize(new THREE.Vector3()); const center = box.getCenter(new THREE.Vector3());
+        object.position.sub(center); object.scale.setScalar(1.15 / Math.max(size.x, size.y, size.z));
+        scene.add(object);
+      }, undefined, error => { el.setAttribute('title', 'Could not load model'); console.error(error); });
+      function resize() { const w = el.clientWidth, h = el.clientHeight; camera.aspect = w / h; camera.updateProjectionMatrix(); renderer.setSize(w, h); }
+      new ResizeObserver(resize).observe(el);
+      function frame() { if (el._disposed) return; requestAnimationFrame(frame); if (highQuality || el.dataset.visible === 'true') { controls.update(); renderer.render(scene, camera); } } frame();
+    }
+    const gallery = document.querySelector('.gallery');
+    gallery.querySelector('[data-records-placeholder]')?.remove();
+    for (const record of window.FOOD_RECORDS || []) {
+      const article = document.createElement('article');
+      const day = record.source_timestamp.slice(0, 10);
+      article.innerHTML = `<div class="stage" data-model="${record.model}"></div><time datetime="${day}">${day.slice(5).replace('-', '/')}/${day.slice(2, 4)}</time>`;
+      gallery.append(article);
+    }
+    const stages = [...document.querySelectorAll('.gallery .stage')];
+    const observer = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          loadStage(entry.target, stages.indexOf(entry.target));
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { root: document.querySelector('.content'), rootMargin: '360px 0px' });
+    stages.forEach(stage => observer.observe(stage));
+    const visibilityObserver = new IntersectionObserver(entries => {
+      entries.forEach(entry => { entry.target.dataset.visible = entry.isIntersecting ? 'true' : 'false'; });
+    }, { root: document.querySelector('.content'), rootMargin: '0px' });
+    stages.forEach(stage => visibilityObserver.observe(stage));
+    const modal = document.querySelector('#model-modal');
+    const modalStage = document.querySelector('#modal-stage');
+    const setGalleryQuality = low => stages.forEach(stage => {
+      if (stage._renderer) stage._renderer.setPixelRatio(Math.min(devicePixelRatio, low ? .75 : 1.5));
+    });
+    const closeModal = () => {
+      modal.hidden = true;
+      if (modalStage._dispose) modalStage._dispose();
+      modalStage.innerHTML = '';
+      delete modalStage.dataset.loaded;
+      setGalleryQuality(false);
+    };
+    stages.forEach(stage => {
+      let dragged = false;
+      stage.addEventListener('pointerdown', () => { dragged = false; });
+      stage.addEventListener('pointermove', () => { dragged = true; });
+      stage.addEventListener('click', () => {
+        if (dragged) return;
+      if (modalStage._dispose) modalStage._dispose();
+      modalStage.innerHTML = '';
+      delete modalStage.dataset.loaded;
+      modalStage.dataset.model = stage.dataset.model;
+      modal.hidden = false;
+      setGalleryQuality(true);
+      loadStage(modalStage, 0, true);
+      });
+    });
+    modal.addEventListener('click', event => { if (event.target === modal) closeModal(); });
+    document.addEventListener('keydown', event => { if (event.key === 'Escape') closeModal(); });
+  </script>
+</body>
+</html>

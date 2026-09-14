@@ -1,0 +1,1 @@
+window.FOOD_RECORDS = [];

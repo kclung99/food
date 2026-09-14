@@ -1,0 +1,20 @@
+CREATE TABLE IF NOT EXISTS records (
+  id TEXT PRIMARY KEY,
+  date TEXT NOT NULL,
+  source_timestamp TEXT,
+  original_model TEXT NOT NULL,
+  model TEXT NOT NULL,
+  source TEXT UNIQUE NOT NULL,
+  status TEXT NOT NULL DEFAULT 'processing',
+  error TEXT,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  level TEXT NOT NULL,
+  action TEXT NOT NULL,
+  source TEXT,
+  message TEXT NOT NULL
+);
