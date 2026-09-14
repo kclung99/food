@@ -14,6 +14,12 @@ Manual and scheduled runs publish successful changes to GitHub automatically.
 launchctl kickstart -k gui/$(id -u)/com.kclung.food.process
 ```
 
+Watch the background run.
+
+```bash
+tail -f runs/scheduler.log runs/scheduler-error.log
+```
+
 Install the macOS background schedule.
 
 ```bash

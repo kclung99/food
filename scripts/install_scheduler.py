@@ -11,7 +11,7 @@ python = ROOT / '.venv' / 'bin' / 'python3'
 if not python.exists(): python = Path('/usr/bin/python3')
 plist = {
     'Label': label,
-    'ProgramArguments': [str(python), str(ROOT / 'scripts' / 'process_captures.py')],
+    'ProgramArguments': [str(python), '-u', str(ROOT / 'scripts' / 'process_captures.py')],
     'WorkingDirectory': str(ROOT),
     'EnvironmentVariables': {
         'PATH': '/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin',
